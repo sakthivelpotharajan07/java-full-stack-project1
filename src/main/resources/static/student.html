@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h1>Zidio Connect - Student</h1>
+        <div class="user-info">
+            <p>Welcome, <span id="studentName"></span>!</p>
+            <button onclick="logout()" class="btn btn-danger">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-section">
+            <h3>My Profile</h3>
+            <input id="resume" placeholder="Enter Public Resume Link (e.g., Google Drive, LinkedIn)">
+            <button onclick="saveResume()">Save Resume Link</button>
+        </div>
+
+        <div class="dashboard-section">
+            <h2>Available Jobs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Location</th>
+                        <th>Job Type</th>
+                        <th>Description</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="jobs"></tbody>
+            </table>
+        </div>
+
+        <div class="dashboard-section">
+            <h2>My Applications</h2>
+            <table>
+                <thead><tr><th>Job Title</th><th>Status</th></tr></thead>
+                <tbody id="applications"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user || user.role !== "ROLE_STUDENT") {
+        window.location.href = "login.html";
+    }
+    document.getElementById("studentName").textContent = user.name;
+
+    async function fetchWithAuth(url, options = {}) {
+        const token = localStorage.getItem("authToken");
+        const headers = { 'Content-Type': 'application/json', ...options.headers };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(url, { ...options, headers });
+        if(response.status === 401 || response.status === 403) {
+            logout();
+        }
+        return response;
+    }
+
+    function renderJobs(jobsData) {
+        const tbody = document.getElementById("jobs");
+        tbody.innerHTML = "";
+        jobsData.forEach(j => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = j.title;
+            row.insertCell().textContent = j.location;
+            row.insertCell().textContent = j.jobType || 'N/A';
+            row.insertCell().textContent = j.description;
+            
+            const actionCell = row.insertCell();
+            const applyButton = document.createElement('button');
+            applyButton.textContent = 'Apply';
+            applyButton.onclick = () => applyJob(j.jobId);
+            actionCell.appendChild(applyButton);
+        });
+    }
+
+    function renderApplications(appsData) {
+        const tbody = document.getElementById("applications");
+        tbody.innerHTML = "";
+        appsData.forEach(a => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = a.job.title;
+            row.insertCell().textContent = a.status;
+        });
+    }
+
+    async function loadJobs() {
+        const res = await fetchWithAuth("http://localhost:8080/api/jobs");
+        if (res.ok) {
+            const jobs = await res.json();
+            renderJobs(jobs);
+        }
+    }
+
+    async function applyJob(jobId) {
+        const res = await fetchWithAuth("http://localhost:8080/api/applications", {
+            method: "POST",
+            body: JSON.stringify({ student: { userId: user.userId }, job: { jobId: jobId } })
+        });
+        if (res.ok) {
+            alert("Applied successfully!");
+            fetchApplications();
+        } else {
+            alert("Failed to apply. You may have already applied for this job.");
+        }
+    }
+
+    async function fetchApplications() {
+        const res = await fetchWithAuth(`http://localhost:8080/api/applications/user/${user.userId}`);
+        if (res.ok) {
+            const apps = await res.json();
+            renderApplications(apps);
+        }
+    }
+
+    async function saveResume() {
+        const link = document.getElementById("resume").value.trim();
+        if (!link) {
+            alert("Please enter a resume link.");
+            return;
+        }
+        try {
+            const res = await fetchWithAuth(`http://localhost:8080/api/profiles/${user.userId}`, {
+                method: "POST",
+                body: JSON.stringify({ resumeLink: link })
+            });
+            if (res.ok) {
+                alert("Resume link saved successfully!");
+            } else {
+                alert("Error: Could not save resume link. Please try again.");
+            }
+        } catch (error) {
+            console.error("Failed to save resume:", error);
+            alert("A network error occurred. Please try again.");
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "index.html";
+    }
+
+    window.onload = () => {
+        loadJobs();
+        fetchApplications();
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Recruiter Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h1>Zidio Connect - Recruiter</h1>
+        <div class="user-info">
+            <p>Welcome, <span id="recruiterName"></span>!</p>
+            <button onclick="logout()" class="btn btn-danger">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-section">
+            <h2>Post a New Job</h2>
+            <input type="text" id="jobTitle" placeholder="Job Title">
+            <textarea id="jobDescription" placeholder="Job Description"></textarea>
+            <input type="text" id="jobLocation" placeholder="Location">
+            <select id="jobType">
+                <option value="">Select Job Type</option>
+                <option value="Full-time">Full-time</option>
+                <option value="Part-time">Part-time</option>
+                <option value="Internship">Internship</option>
+                <option value="Contract">Contract</option>
+            </select>
+            <button onclick="createJob()">Post Job</button>
+        </div>
+        
+        <div class="dashboard-section">
+            <h2>My Jobs</h2>
+            <table>
+                <thead><tr><th>Title</th><th>Actions</th></tr></thead>
+                <tbody id="jobs"></tbody>
+            </table>
+        </div>
+
+        <div class="dashboard-section">
+            <h2>Applications for Selected Job</h2>
+            <table>
+                <thead><tr><th>Applicant Name</th><th>Status</th><th>Resume</th><th>Actions</th></tr></thead>
+                <tbody id="applications"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user || user.role !== "ROLE_RECRUITER") {
+        window.location.href = "login.html";
+    }
+    document.getElementById("recruiterName").textContent = user.name;
+
+    async function fetchWithAuth(url, options = {}) {
+        const token = localStorage.getItem("authToken");
+        const headers = { 'Content-Type': 'application/json', ...options.headers };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(url, { ...options, headers });
+        if(response.status === 401 || response.status === 403) {
+            logout();
+        }
+        return response;
+    }
+
+    // THIS FUNCTION IS NOW DEFINITIVELY CORRECT
+    async function createJob() {
+        const title = document.getElementById("jobTitle").value.trim();
+        const location = document.getElementById("jobLocation").value.trim();
+        const description = document.getElementById("jobDescription").value.trim();
+        const type = document.getElementById("jobType").value;
+
+        if (!title || !location || !description || !type) {
+            alert("Please fill all job fields, including the job type.");
+            return;
+        }
+        
+        const res = await fetchWithAuth("http://localhost:8080/api/jobs", {
+            method: "POST",
+            // THE FIX IS HERE: The key is "jobType" to match the Java backend.
+            body: JSON.stringify({ 
+                title: title, 
+                location: location, 
+                description: description, 
+                jobType: type, 
+                recruiter: { userId: user.userId } 
+            })
+        });
+
+        if (res.ok) {
+            document.getElementById("jobTitle").value = '';
+            document.getElementById("jobLocation").value = '';
+            document.getElementById("jobDescription").value = '';
+            document.getElementById("jobType").value = '';
+            loadJobs();
+        } else {
+            alert("Failed to create job.");
+        }
+    }
+
+    function renderJobs(jobsData) {
+        const tbody = document.getElementById("jobs");
+        tbody.innerHTML = "";
+        jobsData.forEach(j => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = j.title;
+            const actionCell = row.insertCell();
+            const viewButton = document.createElement('button');
+            viewButton.textContent = 'View Applications';
+            viewButton.onclick = () => viewApplications(j.jobId);
+            actionCell.appendChild(viewButton);
+        });
+    }
+
+    function renderApplications(appsData, jobId) {
+        const tbody = document.getElementById("applications");
+        tbody.innerHTML = "";
+        appsData.forEach(a => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = a.student.name;
+            row.insertCell().textContent = a.status;
+
+            const resumeCell = row.insertCell();
+            if (a.student.profile && a.student.profile.resumeLink) {
+                const link = document.createElement('a');
+                link.href = a.student.profile.resumeLink;
+                link.textContent = 'View Resume';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                resumeCell.appendChild(link);
+            } else {
+                resumeCell.textContent = 'N/A';
+            }
+
+            const actionCell = row.insertCell();
+            const acceptBtn = document.createElement('button');
+            acceptBtn.textContent = 'Accept';
+            acceptBtn.className = 'btn-secondary';
+            acceptBtn.onclick = () => updateStatus(a.applicationId, 'Accepted', jobId);
+            
+            const rejectBtn = document.createElement('button');
+            rejectBtn.textContent = 'Reject';
+            rejectBtn.className = 'btn-danger';
+            rejectBtn.onclick = () => updateStatus(a.applicationId, 'Rejected', jobId);
+            
+            actionCell.append(acceptBtn, rejectBtn);
+        });
+    }
+
+    async function loadJobs() {
+        const res = await fetchWithAuth(`http://localhost:8080/api/jobs/recruiter/${user.userId}`);
+        if(res.ok) {
+            const jobs = await res.json();
+            renderJobs(jobs);
+        }
+    }
+
+    async function viewApplications(jobId) {
+        const res = await fetchWithAuth(`http://localhost:8080/api/applications/job/${jobId}`);
+        if (res.ok) {
+            const apps = await res.json();
+            renderApplications(apps, jobId);
+        }
+    }
+
+    async function updateStatus(appId, status, jobId) {
+        const res = await fetchWithAuth(`http://localhost:8080/api/applications/${appId}/status?status=${status}`, { method: "PUT" });
+        if (res.ok) {
+            alert("Status updated");
+            viewApplications(jobId);
+        } else {
+            alert("Failed to update status.");
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "index.html";
+    }
+
+    window.onload = loadJobs;
+</script>
+</body>
+</html>

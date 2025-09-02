@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Zidio Connect</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-panel branding">
+                <h1>Welcome Back!</h1>
+                <p>Log in to continue your journey with Zidio Connect.</p>
+            </div>
+            <div class="auth-panel form-section">
+                <h2>Login</h2>
+                <div class="input-group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <input id="email" type="email" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <input id="password" type="password" placeholder="Password" required>
+                </div>
+                <button onclick="login()">Login</button>
+                <p id="errorMsg" class="error-message">Invalid email or password</p>
+                <div class="auth-links">
+                    <p>Don't have an account? <a href="register.html">Register Now</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    async function login() {
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const errorMsg = document.getElementById("errorMsg");
+        errorMsg.style.display = 'none';
+
+        if (!email || !password) {
+            alert("Please enter both email and password.");
+            return;
+        }
+
+        try {
+            const response = await fetch("http://localhost:8080/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (response.ok) {
+                const authData = await response.json();
+                localStorage.setItem("authToken", authData.token);
+                localStorage.setItem("user", JSON.stringify({
+                    userId: authData.userId,
+                    name: authData.name,
+                    role: authData.role
+                }));
+                const role = authData.role.replace('ROLE_', '').toLowerCase();
+                window.location.href = `${role}.html`;
+            } else {
+                errorMsg.style.display = 'block';
+            }
+        } catch (error) {
+            alert("Failed to login. Server might be down.");
+            console.error(error);
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register - Zidio Connect</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-panel branding">
+                <h1>Join Us</h1>
+                <p>Create an account to start applying for jobs or posting opportunities.</p>
+            </div>
+            <div class="auth-panel form-section">
+                <h2>Create Account</h2>
+                <div class="input-group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <input id="name" type="text" placeholder="Full Name">
+                </div>
+                 <div class="input-group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <input id="email" type="email" placeholder="Email">
+                </div>
+                <div class="input-group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <input id="password" type="password" placeholder="Password (min 6 characters)">
+                </div>
+                <div class="input-group">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <select id="role">
+                        <option value="">Select Role</option>
+                        <option value="student">Student</option>
+                        <option value="recruiter">Recruiter</option>
+                    </select>
+                </div>
+                <button onclick="register()" style="background-color: #1abc9c;">Register</button>
+                <p id="errorMsg" class="error-message"></p>
+                <div class="auth-links">
+                    <p>Already have an account? <a href="login.html">Login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+  async function register() {
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const role = document.getElementById("role").value;
+    const errorMsg = document.getElementById("errorMsg");
+    errorMsg.classList.add("hidden");
+
+    if (!name || !email || !password || !role) {
+      errorMsg.textContent = "Please fill out all fields.";
+      errorMsg.classList.remove("hidden");
+      return;
+    }
+    if (password.length < 6) {
+      errorMsg.textContent = "Password must be at least 6 characters.";
+      errorMsg.classList.remove("hidden");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:8080/api/auth/register", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({name, email, password, role})
+      });
+
+      if (res.ok) {
+        alert("Registration successful! Please login.");
+        window.location.href = "login.html";
+      } else {
+        const errorText = await res.text();
+        errorMsg.textContent = `Registration failed: ${errorText}`;
+        errorMsg.classList.remove("hidden");
+      }
+    } catch (e) {
+      errorMsg.textContent = "Registration failed. Server may be down.";
+      errorMsg.classList.remove("hidden");
+    }
+  }
+</script>
+</body>
+</html>
